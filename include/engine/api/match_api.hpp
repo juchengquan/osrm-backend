@@ -196,6 +196,11 @@ class MatchAPI final : public RouteAPI
             const auto &phantom =
                 sub_matchings[matching_index.sub_matching_index].nodes[matching_index.point_index];
             auto waypoint = BaseAPI::MakeWaypoint(phantom);
+
+            // TODO
+            waypoint.values["forward_distance"] = phantom.forward_distance;
+            waypoint.values["backward_distance"] = phantom.reverse_distance;
+
             waypoint.values["matchings_index"] = matching_index.sub_matching_index;
             waypoint.values["waypoint_index"] = matching_index.point_index;
             waypoint.values["alternatives_count"] =
