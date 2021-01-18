@@ -126,6 +126,8 @@ inline void async(const Nan::FunctionCallbackInfo<v8::Value> &info,
         return;
 
     auto pluginParams = argumentsToPluginParameters(info);
+    auto outputFormatParams = argumentsToOutputFormatParameters(info);
+    // TODO cqju
 
     BOOST_ASSERT(params->IsValid());
 
@@ -143,29 +145,48 @@ inline void async(const Nan::FunctionCallbackInfo<v8::Value> &info,
                ParamPtr params_,
                ServiceMemFn service,
                Nan::Callback *callback,
-               PluginParameters pluginParams_)
+               PluginParameters pluginParams_,
+               OutputFormatParameters outputFormatParams_) 
             : Base(callback), osrm{std::move(osrm_)}, service{std::move(service)},
-              params{std::move(params_)}, pluginParams{std::move(pluginParams_)}
+              params{std::move(params_)}, 
+              pluginParams{std::move(pluginParams_)}, outputFormatParams{std::move(outputFormatParams_)}  
         {
         }
 
-        void Execute() override
+        void Execute() override 
         try
         {
-            osrm::engine::api::ResultT r;
-            r = osrm::util::json::Object();
-            const auto status = ((*osrm).*(service))(*params, r);
-            auto json_result = r.get<osrm::json::Object>();
-            ParseResult(status, json_result);
-            if (pluginParams.renderJSONToBuffer)
+            if (outputFormatParams.outputFormatType == "flatbuffers")
             {
-                std::ostringstream buf;
-                osrm::util::json::render(buf, json_result);
-                result = buf.str();
+                osrm::engine::api::ResultT r = flatbuffers::FlatBufferBuilder();
+                ((*osrm).*(service))(*params, r);
+                auto &fbresult = r.get<flatbuffers::FlatBufferBuilder>();
+
+                std::vector<char> content;
+                content.resize(fbresult.GetSize());
+                std::copy(fbresult.GetBufferPointer(),
+                        fbresult.GetBufferPointer() + fbresult.GetSize(),
+                        content.begin());
+
+                std::string res(content.begin(), content.end());
+                result = res;
             }
             else
             {
-                result = json_result;
+                osrm::engine::api::ResultT r = osrm::util::json::Object();
+                const auto status = ((*osrm).*(service))(*params, r);
+                auto json_result = r.get<osrm::json::Object>();
+                ParseResult(status, json_result);
+                if (pluginParams.renderJSONToBuffer)
+                {
+                    std::ostringstream buf;
+                    osrm::util::json::render(buf, json_result);
+                    result = buf.str();
+                }
+                else
+                {
+                    result = json_result;
+                }
             }
         }
         catch (const std::exception &e)
@@ -188,13 +209,14 @@ inline void async(const Nan::FunctionCallbackInfo<v8::Value> &info,
         ServiceMemFn service;
         const ParamPtr params;
         const PluginParameters pluginParams;
-
+        const OutputFormatParameters outputFormatParams;
+        
         ObjectOrString result;
     };
 
     auto *callback = new Nan::Callback{info[info.Length() - 1].As<v8::Function>()};
     Nan::AsyncQueueWorker(
-        new Worker{self->this_, std::move(params), service, callback, std::move(pluginParams)});
+        new Worker{self->this_, std::move(params), service, callback, std::move(pluginParams), std::move(outputFormatParams)});
 }
 
 template <typename ParameterParser, typename ServiceMemFn>
@@ -208,6 +230,7 @@ inline void asyncForTiles(const Nan::FunctionCallbackInfo<v8::Value> &info,
         return;
 
     auto pluginParams = argumentsToPluginParameters(info);
+    auto outputFormatParams = argumentsToOutputFormatParameters(info);
 
     BOOST_ASSERT(params->IsValid());
 
@@ -225,19 +248,38 @@ inline void asyncForTiles(const Nan::FunctionCallbackInfo<v8::Value> &info,
                ParamPtr params_,
                ServiceMemFn service,
                Nan::Callback *callback,
-               PluginParameters pluginParams_)
+               PluginParameters pluginParams_,
+               OutputFormatParameters outputFormatParams_) 
             : Base(callback), osrm{std::move(osrm_)}, service{std::move(service)},
-              params{std::move(params_)}, pluginParams{std::move(pluginParams_)}
+              params{std::move(params_)}, 
+              pluginParams{std::move(pluginParams_)}, outputFormatParams{std::move(outputFormatParams_)}
         {
         }
 
-        void Execute() override
-        try
+        void Execute() override try
         {
-            result = std::string();
-            const auto status = ((*osrm).*(service))(*params, result);
-            auto str_result = result.get<std::string>();
-            ParseResult(status, str_result);
+            if (outputFormatParams.outputFormatType == "flatbuffers")
+            {
+                osrm::engine::api::ResultT r = flatbuffers::FlatBufferBuilder();
+                ((*osrm).*(service))(*params, r);
+                auto &fbresult = r.get<flatbuffers::FlatBufferBuilder>();
+
+                std::vector<char> content;
+                content.resize(fbresult.GetSize());
+                std::copy(fbresult.GetBufferPointer(),
+                        fbresult.GetBufferPointer() + fbresult.GetSize(),
+                        content.begin());
+
+                std::string res(content.begin(), content.end());
+                result = res;
+            }
+            else
+            {
+                result = std::string();
+                const auto status = ((*osrm).*(service))(*params, result);
+                auto str_result = result.get<std::string>();
+                ParseResult(status, str_result);
+            } 
         }
         catch (const std::exception &e)
         {
@@ -260,13 +302,14 @@ inline void asyncForTiles(const Nan::FunctionCallbackInfo<v8::Value> &info,
         ServiceMemFn service;
         const ParamPtr params;
         const PluginParameters pluginParams;
+        const OutputFormatParameters outputFormatParams;
 
         osrm::engine::api::ResultT result;
     };
 
     auto *callback = new Nan::Callback{info[info.Length() - 1].As<v8::Function>()};
     Nan::AsyncQueueWorker(
-        new Worker{self->this_, std::move(params), service, callback, std::move(pluginParams)});
+        new Worker{self->this_, std::move(params), service, callback, std::move(pluginParams), std::move(outputFormatParams)});
 }
 
 // clang-format off

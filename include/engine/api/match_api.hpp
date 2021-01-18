@@ -198,8 +198,10 @@ class MatchAPI final : public RouteAPI
             auto waypoint = BaseAPI::MakeWaypoint(phantom);
 
             // TODO
-            waypoint.values["forward_distance"] = phantom.forward_distance;
-            waypoint.values["backward_distance"] = phantom.reverse_distance;
+            waypoint.values["from_distance"] = phantom.forward_distance;
+            waypoint.values["to_distance"] = phantom.reverse_distance;
+            // waypoint.values["forward_distance"] = phantom.GetForwardDistance();
+            // waypoint.values["backward_distance"] = phantom.GetBackwardDistance();
 
             waypoint.values["matchings_index"] = matching_index.sub_matching_index;
             waypoint.values["waypoint_index"] = matching_index.point_index;
