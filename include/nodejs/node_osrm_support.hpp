@@ -44,9 +44,17 @@ using match_parameters_ptr = std::unique_ptr<osrm::MatchParameters>;
 using nearest_parameters_ptr = std::unique_ptr<osrm::NearestParameters>;
 using table_parameters_ptr = std::unique_ptr<osrm::TableParameters>;
 
+// cqju
 struct PluginParameters
 {
     bool renderJSONToBuffer = false;
+    // std::string outputFormatType = "json";
+};
+
+struct OutputFormatParameters
+{
+    // bool renderJSONToBuffer = false;
+    std::string outputFormatType = "json";
 };
 
 using ObjectOrString = typename mapbox::util::variant<osrm::json::Object, std::string>;
@@ -877,15 +885,14 @@ argumentsToPluginParameters(const Nan::FunctionCallbackInfo<v8::Value> &args)
         return {};
     }
     v8::Local<v8::Object> obj = Nan::To<v8::Object>(args[1]).ToLocalChecked();
+
     if (Nan::Has(obj, Nan::New("format").ToLocalChecked()).FromJust())
     {
 
         v8::Local<v8::Value> format =
             Nan::Get(obj, Nan::New("format").ToLocalChecked()).ToLocalChecked();
         if (format.IsEmpty())
-        {
-            return {};
-        }
+        {}
 
         if (!format->IsString())
         {
@@ -910,9 +917,53 @@ argumentsToPluginParameters(const Nan::FunctionCallbackInfo<v8::Value> &args)
             return {};
         }
     }
+    return {};
+}
+
+inline OutputFormatParameters
+argumentsToOutputFormatParameters(const Nan::FunctionCallbackInfo<v8::Value> &args)
+{
+    if (args.Length() < 3 || !args[1]->IsObject())
+    {
+        return {};
+    }
+    v8::Local<v8::Object> obj = Nan::To<v8::Object>(args[1]).ToLocalChecked();
+
+    if (Nan::Has(obj, Nan::New("output_format").ToLocalChecked()).FromJust())
+    {
+
+        v8::Local<v8::Value> format =
+            Nan::Get(obj, Nan::New("output_format").ToLocalChecked()).ToLocalChecked();
+        if (format.IsEmpty())
+        {}
+
+        if (!format->IsString())
+        {
+            Nan::ThrowError("format must be a string: \"object\" or \"json_buffer\"");
+            return {};
+        }
+
+        const Nan::Utf8String format_utf8str(format);
+        std::string format_str{*format_utf8str, *format_utf8str + format_utf8str.length()};
+
+        if (format_str == "json")
+        {
+            return {"json"};
+        }
+        else if (format_str == "flatbuffers")
+        {
+            return {"flatbuffers"};
+        }
+        else
+        {
+            Nan::ThrowError("format must be a string: \"object\" or \"json_buffer\"");
+            return {};
+        }
+    }
 
     return {};
 }
+
 
 inline route_parameters_ptr
 argumentsToRouteParameter(const Nan::FunctionCallbackInfo<v8::Value> &args,

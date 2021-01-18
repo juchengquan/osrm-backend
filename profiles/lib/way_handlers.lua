@@ -601,6 +601,69 @@ function WayHandlers.weights(profile,way,result,data)
   end
 end
 
+function WayHandlers.oneway_till_secondary(profile,way,result,data)
+  if not profile.oneway_handling then
+    return
+  end
+
+  local oneway
+  local highway = way:get_value_by_key("highway")
+
+  found = false
+  local highway_list = {"motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link", "secondary", "secondary_link"}
+  for _, v in ipairs(highway_list) do
+    if highway == v then
+      found = true
+      break
+    end
+  end
+
+  if found == false then
+    return
+  end
+  
+  if profile.oneway_handling == true and found == true then
+    oneway = Tags.get_value_by_prefixed_sequence(way,profile.restrictions,'oneway') or way:get_value_by_key("oneway")
+  elseif profile.oneway_handling == 'specific' then
+    oneway = Tags.get_value_by_prefixed_sequence(way,profile.restrictions,'oneway')
+  elseif profile.oneway_handling == 'conditional' then
+    -- Following code assumes that `oneway` and `oneway:conditional` tags have opposite values and takes weakest (always `no`).
+    -- So if we will have:
+    -- oneway=yes, oneway:conditional=no @ (condition1)
+    -- oneway=no, oneway:conditional=yes @ (condition2)
+    -- condition1 will be always true and condition2 will be always false.
+    if way:get_value_by_key("oneway:conditional") then
+        oneway = "no"
+    else
+        oneway = Tags.get_value_by_prefixed_sequence(way,profile.restrictions,'oneway') or way:get_value_by_key("oneway")
+    end
+  end
+
+  data.oneway = oneway
+
+  if oneway == "-1" then
+    data.is_reverse_oneway = true
+    result.forward_mode = mode.inaccessible
+  elseif oneway == "yes" or
+         oneway == "1" or
+         oneway == "true" then
+    data.is_forward_oneway = true
+    result.backward_mode = mode.inaccessible
+  elseif profile.oneway_handling == true then
+    local junction = way:get_value_by_key("junction")
+    if data.highway == "motorway" or
+       junction == "roundabout" or
+       junction == "circular" then
+      if oneway ~= "no" then
+        -- implied oneway
+        data.is_forward_oneway = true
+        result.backward_mode = mode.inaccessible
+      end
+    end
+  end
+end
+
+
 
 -- handle general avoid rules
 
