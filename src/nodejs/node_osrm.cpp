@@ -159,8 +159,9 @@ inline void async(const Nan::FunctionCallbackInfo<v8::Value> &info,
             if (outputFormatParams.outputFormatType == "flatbuffers")
             {
                 osrm::engine::api::ResultT r = flatbuffers::FlatBufferBuilder();
-                ((*osrm).*(service))(*params, r);
+                const auto status = ((*osrm).*(service))(*params, r);
                 auto &fbresult = r.get<flatbuffers::FlatBufferBuilder>();
+                ParseResult(status, fbresult);
 
                 std::vector<char> content;
                 content.resize(fbresult.GetSize());

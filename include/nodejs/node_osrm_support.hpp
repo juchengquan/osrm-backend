@@ -33,6 +33,8 @@
 #include <memory>
 #include <utility>
 
+#include "engine/api/flatbuffers/fbresult_generated.h"
+
 namespace node_osrm
 {
 
@@ -91,17 +93,38 @@ inline void ParseResult(const osrm::Status &result_status, osrm::json::Object &r
     BOOST_ASSERT(code_iter != end_iter);
 
     if (result_status == osrm::Status::Error)
-    {
-        throw std::logic_error(code_iter->second.get<osrm::json::String>().value.c_str());
+    {   
+        const auto message_iter = result.values.find("message");
+        throw std::logic_error(
+                code_iter->second.get<osrm::json::String>().value 
+                + " :placeholder: "
+                + message_iter->second.get<osrm::json::String>().value
+            );
     }
 
-    result.values.erase(code_iter);
+    // result.values.erase(code_iter);
     const auto message_iter = result.values.find("message");
     if (message_iter != end_iter)
     {
         result.values.erase(message_iter);
     }
 }
+
+// TODO cqju
+inline void ParseResult(const osrm::Status &result_status, flatbuffers::FlatBufferBuilder &result)
+{
+    auto fb = osrm::engine::api::fbresult::GetFBResult(result.GetBufferPointer());
+    if (result_status == osrm::Status::Error) { // fb->error()
+        auto fberror = fb->code();
+        throw std::logic_error(
+                fberror->code()->str()
+                + " :placeholder: "
+                + fberror->message()->str()
+            );
+    }
+}
+
+
 
 inline void ParseResult(const osrm::Status & /*result_status*/, const std::string & /*unused*/) {}
 
